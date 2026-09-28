@@ -4,56 +4,96 @@ import streamlit as st
 
 # 1. Page Configuration
 st.set_page_config(
-    page_title="BigBasket vs JioMart Dashboard",
+    page_title="BigBasket vs JioMart Price Dashboard",
     page_icon="🛒",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# 2. Inject Modern Dark Mode CSS UI Styling
+# 2. Inject Replit-Style Dark Theme CSS
 st.markdown(
     """
     <style>
-    /* Dark Theme Background */
-    .main {
-        background-color: #0f172a;
-        color: #f8fafc;
+    /* Dark background matching Replit app */
+    .stApp {
+        background-color: #0b0f19;
+        color: #f3f4f6;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     
-    /* Header Container Styling */
-    .main-header {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        padding: 24px;
+    /* Hide top Streamlit padding & header line */
+    header[data-testid="stHeader"] {
+        background: transparent;
+    }
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        max-width: 1200px;
+    }
+
+    /* Custom Header Container */
+    .dashboard-header {
+        background: #111827;
+        border: 1px solid #1f2937;
         border-radius: 12px;
-        border: 1px solid #334155;
+        padding: 24px;
         margin-bottom: 24px;
     }
-    
-    /* Custom Metric Cards */
+    .dashboard-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0 0 6px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .dashboard-subtitle {
+        color: #9ca3af;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    /* Replit-style Card Box for Metrics */
     div[data-testid="stMetric"] {
-        background-color: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 16px 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+        background-color: #111827 !important;
+        border: 1px solid #1f2937 !important;
+        border-radius: 12px !important;
+        padding: 16px 20px !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3) !important;
     }
     
     div[data-testid="stMetric"] label {
-        color: #94a3b8 !important;
-        font-weight: 500;
-        font-size: 0.875rem;
+        color: #9ca3af !important;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
     }
     
     div[data-testid="stMetricValue"] {
-        color: #f8fafc !important;
-        font-weight: 700;
+        color: #ffffff !important;
+        font-size: 1.8rem !important;
+        font-weight: 700 !important;
     }
-    
-    /* Custom Table Container */
+
+    /* Input & Select Box styling */
+    .stTextInput input, .stSelectbox div[data-baseweb="select"] {
+        background-color: #111827 !important;
+        border: 1px solid #374151 !important;
+        color: #f3f4f6 !important;
+        border-radius: 8px !important;
+    }
+    .stTextInput input:focus, .stSelectbox div[data-baseweb="select"]:focus {
+        border-color: #3b82f6 !important;
+    }
+
+    /* Styled DataFrame Grid */
     .stDataFrame {
-        border-radius: 10px;
+        border: 1px solid #1f2937;
+        border-radius: 12px;
         overflow: hidden;
-        border: 1px solid #334155;
+        background-color: #111827;
     }
     </style>
 """,
@@ -61,15 +101,10 @@ st.markdown(
 )
 
 
-# 3. Data Processing Pipeline
+# 3. Data Loading & Processing
 @st.cache_data
-def load_and_process_data():
+def load_data():
     df = pd.read_csv("grocery_prices.csv")
-
-    # Lowercase column names
-    df.columns = [c.strip().lower() for c in df.columns]
-
-    # Calculate Savings & Lower Price Platform
     df["price_diff"] = (df["bigbasket_price"] - df["jiomart_price"]).abs()
 
     def get_cheaper(row):
@@ -80,109 +115,105 @@ def load_and_process_data():
         return "Equal"
 
     df["cheaper_at"] = df.apply(get_cheaper, axis=1)
-
-    # Calculate Savings Percentage
-    df["savings_pct"] = (
-        df["price_diff"] / df[["bigbasket_price", "jiomart_price"]].max(axis=1)
-    ) * 100
     return df
 
 
 try:
-    df = load_and_process_data()
+    df = load_data()
 
-    # --- HEADER SECTION ---
+    # --- TOP HEADER ---
     st.markdown(
         """
-        <div class="main-header">
-            <h1 style="margin:0; font-size: 2rem; color: #f8fafc;">🛒 BigBasket vs JioMart Price Intelligence</h1>
-            <p style="margin-top:8px; color:#94a3b8; font-size:1rem;">
-                Real-time price comparisons across 60 essential grocery items in India
-            </p>
+        <div class="dashboard-header">
+            <div class="dashboard-title">
+                <span>🛒</span> BigBasket vs JioMart Price Dashboard
+            </div>
+            <div class="dashboard-subtitle">
+                Real-time price comparison across key grocery products and categories
+            </div>
         </div>
     """,
         unsafe_allow_html=True,
     )
 
-    # --- KPI SUMMARY METRIC CARDS ---
-    m1, m2, m3, m4 = st.columns(4)
+    # --- KPI SUMMARY CARDS ---
+    c1, c2, c3, c4 = st.columns(4)
 
     total_items = len(df)
     bb_avg = df["bigbasket_price"].mean()
     jm_avg = df["jiomart_price"].mean()
-
     jm_wins = (df["cheaper_at"] == "JioMart").sum()
     bb_wins = (df["cheaper_at"] == "BigBasket").sum()
 
-    m1.metric("Tracked Products", f"{total_items} Items")
-    m2.metric(
-        "Avg BigBasket Price",
-        f"₹{bb_avg:.2f}",
-        delta=f"₹{bb_avg - jm_avg:+.2f} vs JioMart",
+    c1.metric("Total Items", f"{total_items}")
+    c2.metric(
+        "Avg BigBasket",
+        f"₹{bb_avg:.1f}",
+        delta=f"₹{bb_avg - jm_avg:+.1f} vs JM",
         delta_color="inverse",
     )
-    m3.metric(
-        "Avg JioMart Price",
-        f"₹{jm_avg:.2f}",
-        delta=f"₹{jm_avg - bb_avg:+.2f} vs BigBasket",
+    c3.metric(
+        "Avg JioMart",
+        f"₹{jm_avg:.1f}",
+        delta=f"₹{jm_avg - bb_avg:+.1f} vs BB",
         delta_color="inverse",
     )
-    m4.metric(
-        "Cheapest Store Overall",
+    c4.metric(
+        "Cheapest Store",
         "JioMart" if jm_wins > bb_wins else "BigBasket",
-        delta=f"Cheaper on {max(jm_wins, bb_wins)}/60 items",
+        delta=f"Cheaper on {max(jm_wins, bb_wins)} items",
     )
 
     st.write("")
 
-    # --- FILTERS SECTION ---
-    col_search, col_cat, col_cheaper = st.columns([2, 1, 1])
+    # --- CONTROLS & FILTERS ---
+    f1, f2, f3 = st.columns([2, 1, 1])
 
-    with col_search:
-        search_query = st.text_input(
-            "🔍 Search Products or Brands:",
-            placeholder="Search e.g. Atta, Oil, Tata...",
+    with f1:
+        search = st.text_input(
+            "Search Product / Brand",
+            placeholder="Type e.g. Atta, Tata, Rice...",
+            label_visibility="collapsed",
         )
 
-    with col_cat:
-        category_list = ["All Categories"] + sorted(
-            list(df["category"].dropna().unique())
+    with f2:
+        categories = ["All Categories"] + sorted(list(df["category"].unique()))
+        selected_cat = st.selectbox(
+            "Category", categories, label_visibility="collapsed"
         )
-        selected_cat = st.selectbox("Category:", category_list)
 
-    with col_cheaper:
+    with f3:
+        platforms = ["All Platforms", "JioMart", "BigBasket", "Equal"]
         selected_platform = st.selectbox(
-            "Cheaper At:", ["All Stores", "JioMart", "BigBasket", "Equal"]
+            "Cheaper Option", platforms, label_visibility="collapsed"
         )
 
-    # Apply Filters
+    # Apply Filtering
     filtered_df = df.copy()
 
-    if search_query:
+    if search:
         filtered_df = filtered_df[
-            filtered_df["product_name"].str.contains(
-                search_query, case=False, na=False
-            )
-            | filtered_df["brand"].str.contains(
-                search_query, case=False, na=False
-            )
+            filtered_df["product_name"].str.contains(search, case=False)
+            | filtered_df["brand"].str.contains(search, case=False)
         ]
 
     if selected_cat != "All Categories":
         filtered_df = filtered_df[filtered_df["category"] == selected_cat]
 
-    if selected_platform != "All Stores":
+    if selected_platform != "All Platforms":
         filtered_df = filtered_df[
             filtered_df["cheaper_at"] == selected_platform
         ]
 
-    st.markdown("---")
+    st.write("")
 
-    # --- INTERACTIVE VISUALIZATION ---
-    st.subheader("📊 Price Comparison Visualizer")
+    # --- PRICE COMPARISON CHART ---
+    st.markdown(
+        "<h3 style='color:#ffffff; font-size:1.1rem; font-weight:600; margin-bottom:12px;'>📊 Price Comparison Overview</h3>",
+        unsafe_allow_html=True,
+    )
 
     if not filtered_df.empty:
-        # Melt DataFrame for Plotly Grouped Bar Chart
         melted = filtered_df.melt(
             id_vars=["product_name", "brand", "quantity"],
             value_vars=["bigbasket_price", "jiomart_price"],
@@ -201,58 +232,58 @@ try:
             color="Platform",
             barmode="group",
             hover_data=["brand", "quantity"],
-            color_discrete_map={"BigBasket": "#84cc16", "JioMart": "#0288d1"},
+            # Matching Replit accent colors (Green for BB, Blue for JioMart)
+            color_discrete_map={"BigBasket": "#22c55e", "JioMart": "#3b82f6"},
             template="plotly_dark",
         )
 
         fig.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            xaxis_title="Product Name",
-            yaxis_title="Price in INR (₹)",
-            font=dict(color="#94a3b8"),
+            paper_bgcolor="#111827",
+            plot_bgcolor="#111827",
+            margin=dict(l=20, r=20, t=20, b=80),
+            xaxis_title=None,
+            yaxis_title="Price (₹)",
+            font=dict(color="#9ca3af", family="sans-serif"),
             xaxis=dict(showgrid=False, tickangle=-45),
-            yaxis=dict(showgrid=True, gridcolor="#334155"),
+            yaxis=dict(showgrid=True, gridcolor="#1f2937"),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
                 y=1.02,
                 xanchor="right",
                 x=1,
-                title="",
+                title=None,
             ),
-            height=500,
+            height=400,
         )
 
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.warning("No products match your current search filters.")
+        st.info("No items match the selected filter criteria.")
 
-    # --- DATA TABLE SECTION ---
-    st.subheader("📋 Itemized Grocery Breakdown")
-
-    # Format dataframe for display
-    display_df = filtered_df[
-        [
-            "product_name",
-            "category",
-            "brand",
-            "quantity",
-            "bigbasket_price",
-            "jiomart_price",
-            "price_diff",
-            "cheaper_at",
-        ]
-    ]
+    # --- PRODUCT DATA TABLE ---
+    st.markdown(
+        "<h3 style='color:#ffffff; font-size:1.1rem; font-weight:600; margin-top:20px; margin-bottom:12px;'>📦 Product Price List</h3>",
+        unsafe_allow_html=True,
+    )
 
     st.dataframe(
-        display_df,
+        filtered_df[
+            [
+                "product_name",
+                "category",
+                "brand",
+                "quantity",
+                "bigbasket_price",
+                "jiomart_price",
+                "price_diff",
+                "cheaper_at",
+            ]
+        ],
         use_container_width=True,
         hide_index=True,
         column_config={
-            "product_name": st.column_config.TextColumn(
-                "Product", width="medium"
-            ),
+            "product_name": st.column_config.TextColumn("Product Name"),
             "category": st.column_config.TextColumn("Category"),
             "brand": st.column_config.TextColumn("Brand"),
             "quantity": st.column_config.TextColumn("Quantity"),
@@ -265,9 +296,9 @@ try:
             "price_diff": st.column_config.NumberColumn(
                 "Difference (₹)", format="₹%d"
             ),
-            "cheaper_at": st.column_config.TextColumn("Cheapest Option"),
+            "cheaper_at": st.column_config.TextColumn("Cheaper Option"),
         },
     )
 
 except Exception as e:
-    st.error(f"Error rendering dashboard: {e}")
+    st.error(f"Error loading dashboard data: {e}")
